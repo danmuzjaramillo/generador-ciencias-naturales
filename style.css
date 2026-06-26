@@ -296,11 +296,12 @@ body {
   opacity: 1;
 }
 
-.area-card.matematicas::before { background: #3b82f6; }
-.area-card.lectura_critica::before { background: #ec4899; }
-.area-card.sociales_ciudadanas::before { background: #f59e0b; }
-.area-card.ciencias_naturales::before { background: #10b981; }
-.area-card.ingles::before { background: #8b5cf6; }
+.area-card.biologia_noveno::before { background: #10b981; }
+.area-card.biologia_decimo::before { background: #14b8a6; }
+.area-card.biologia_undecimo::before { background: #34d399; }
+.area-card.quimica_noveno::before { background: #3b82f6; }
+.area-card.quimica_decimo::before { background: #6366f1; }
+.area-card.quimica_undecimo::before { background: #8b5cf6; }
 
 .area-icon {
   width: 48px;
@@ -313,11 +314,12 @@ body {
   background: rgba(255, 255, 255, 0.05);
 }
 
-.area-card.matematicas .area-icon { color: #3b82f6; background: rgba(59, 130, 246, 0.1); }
-.area-card.lectura_critica .area-icon { color: #ec4899; background: rgba(236, 72, 153, 0.1); }
-.area-card.sociales_ciudadanas .area-icon { color: #f59e0b; background: rgba(245, 158, 11, 0.1); }
-.area-card.ciencias_naturales .area-icon { color: #10b981; background: rgba(16, 185, 129, 0.1); }
-.area-card.ingles .area-icon { color: #8b5cf6; background: rgba(139, 92, 246, 0.1); }
+.area-card.biologia_noveno .area-icon { color: #10b981; background: rgba(16, 185, 129, 0.1); }
+.area-card.biologia_decimo .area-icon { color: #14b8a6; background: rgba(20, 184, 166, 0.1); }
+.area-card.biologia_undecimo .area-icon { color: #34d399; background: rgba(52, 211, 153, 0.1); }
+.area-card.quimica_noveno .area-icon { color: #3b82f6; background: rgba(59, 130, 246, 0.1); }
+.area-card.quimica_decimo .area-icon { color: #6366f1; background: rgba(99, 102, 241, 0.1); }
+.area-card.quimica_undecimo .area-icon { color: #8b5cf6; background: rgba(139, 92, 246, 0.1); }
 
 .area-title {
   font-size: 18px;
