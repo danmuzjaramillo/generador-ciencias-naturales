@@ -73,6 +73,18 @@ export async function exportarWord(questions, area, incluirClaves) {
     return 'jpg';
   }
 
+  /**
+   * Gets the natural dimensions of an image from a data URL (base64).
+   */
+  function getImageDimensionsFromDataUrl(dataUrl) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+      img.onerror = () => resolve(null);
+      img.src = dataUrl;
+    });
+  }
+
   const areaLabel = areaLabels[area] || area;
   const fecha = new Date().toLocaleDateString('es-CO', {
     year: 'numeric', month: 'long', day: 'numeric'
@@ -207,13 +219,20 @@ export async function exportarWord(questions, area, incluirClaves) {
     if (q.images && q.images.length > 0) {
       for (const imgSrc of q.images) {
         try {
+          // Calculate proportional height based on actual image aspect ratio
+          const dims = await getImageDimensionsFromDataUrl(imgSrc);
+          const targetWidth = 400;
+          let targetHeight = 280; // fallback for dimension detection failure
+          if (dims && dims.width > 0) {
+            targetHeight = Math.round(dims.height * (targetWidth / dims.width));
+          }
           children.push(
             new Paragraph({
               children: [
                 new ImageRun({
                   data: base64ToUint8Array(imgSrc),
                   type: imgType(imgSrc),
-                  transformation: { width: 400, height: 280 }
+                  transformation: { width: targetWidth, height: targetHeight }
                 })
               ],
               alignment: AlignmentType.CENTER,
