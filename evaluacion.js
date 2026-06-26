@@ -10,11 +10,12 @@
 import { getQuestionsByArea } from './db.js';
 
 export const areaLabels = {
-  matematicas: 'Matemáticas',
-  lectura_critica: 'Lectura Crítica',
-  sociales_ciudadanas: 'Sociales y Ciudadanas',
-  ciencias_naturales: 'Ciencias Naturales',
-  ingles: 'Inglés'
+  biologia_noveno: 'Biología-Noveno',
+  biologia_decimo: 'Biología-Décimo',
+  biologia_undecimo: 'Biología-Undécimo',
+  quimica_noveno: 'Química-Noveno',
+  quimica_decimo: 'Química-Décimo',
+  quimica_undecimo: 'Química-Undécimo'
 };
 
 /**
@@ -114,7 +115,7 @@ export async function exportarWord(questions, area, incluirClaves) {
       new Paragraph({
         children: [
           new TextRun({
-            text: `EVALUACIÓN ICFES — ${areaLabel.toUpperCase()}`,
+            text: `EVALUACIÓN — ${areaLabel.toUpperCase()}`,
             font: 'Arial', size: 18, bold: true, color: '3B3B3B'
           }),
           new TextRun({
@@ -133,7 +134,7 @@ export async function exportarWord(questions, area, incluirClaves) {
     children: [
       new Paragraph({
         children: [
-          new TextRun({ text: 'ICFES Extractor  •  Página ', font: 'Arial', size: 16, color: '888888' }),
+          new TextRun({ text: 'Extractor-Biología-Química  •  Página ', font: 'Arial', size: 16, color: '888888' }),
           new TextRun({ children: [PageNumber.CURRENT], font: 'Arial', size: 16, color: '888888' }),
           new TextRun({ text: ' de ', font: 'Arial', size: 16, color: '888888' }),
           new TextRun({ children: [PageNumber.TOTAL_PAGES], font: 'Arial', size: 16, color: '888888' })
@@ -592,7 +593,7 @@ export function exportarPDF(questions, area, incluirClaves) {
     html += `</tbody></table></div>`;
   }
 
-  html += `<div class="footer">ICFES Extractor — ${areaLabel} — ${fecha}</div>`;
+  html += `<div class="footer">Extractor-Biología-Química — ${areaLabel} — ${fecha}</div>`;
   html += `</body></html>`;
 
   // Open print window
