@@ -1,4 +1,4 @@
-import { initDB, addQuestion, getQuestionsByArea, deleteQuestion, addFile, getFiles, deleteFile, exportarBanco, restaurarBanco } from './db.js';
+import { initDB, addQuestion, getQuestionsByArea, deleteQuestion, deleteAllQuestionsByArea, addFile, getFiles, deleteFile, exportarBanco, restaurarBanco } from './db.js';
 import { parsePDF, parseDocx } from './parser.js';
 import { seleccionarPreguntasAleatorias, exportarWord, exportarExcel, exportarPDF, exportarGoogleForms } from './evaluacion.js';
 
@@ -39,6 +39,7 @@ const savedQuestionsList = document.getElementById('saved-questions-list');
 const btnBackToDashboard = document.getElementById('btn-back-to-dashboard');
 const btnGenerateTextArea = document.getElementById('btn-generate-text-area');
 const btnGenerateTextAll = document.getElementById('btn-generate-text-all');
+const btnLimpiarCarpeta = document.getElementById('btn-limpiar-carpeta');
 
 // Modal Elements
 const textModal = document.getElementById('text-modal');
@@ -71,11 +72,12 @@ let currentGeneratedEvaluation = null; // Guardar la evaluación aleatoria gener
 
 // Area Labels Mapping
 const areaLabels = {
-  matematicas: 'Matemáticas',
-  lectura_critica: 'Lectura Crítica',
-  sociales_ciudadanas: 'Sociales y Ciudadanas',
-  ciencias_naturales: 'Ciencias Naturales',
-  ingles: 'Inglés'
+  biologia_noveno: 'Biología-Noveno',
+  biologia_decimo: 'Biología-Décimo',
+  biologia_undecimo: 'Biología-Undécimo',
+  quimica_noveno: 'Química-Noveno',
+  quimica_decimo: 'Química-Décimo',
+  quimica_undecimo: 'Química-Undécimo'
 };
 
 // Initialize Application
@@ -140,6 +142,9 @@ function setupEventListeners() {
   // Generate text buttons
   btnGenerateTextArea.addEventListener('click', () => generateTextForArea(currentBrowsingArea));
   btnGenerateTextAll.addEventListener('click', () => generateTextForAllAreas());
+
+  // Limpiar Carperta (delete all questions in current area)
+  btnLimpiarCarpeta.addEventListener('click', handleLimpiarCarpeta);
 
   // ── Evaluación Modal ──────────────────────────────────────────
   btnGenerarEvaluacion.addEventListener('click', () => {
@@ -741,7 +746,28 @@ async function generateTextForAllAreas() {
     combinedText = 'La base de datos está vacía. Sube y extrae preguntas primero.';
   }
 
-  showModal('Banco Completo de Preguntas ICFES', combinedText);
+  showModal('Banco Completo de Preguntas - Biología y Química', combinedText);
+}
+
+// ── Limpiar Carperta (delete all questions in current area) ──────────────────
+
+async function handleLimpiarCarpeta() {
+  const area = currentBrowsingArea;
+  const areaLabel = areaLabels[area] || area;
+
+  const confirmacion = confirm(
+    `¿Estás seguro de que deseas ELIMINAR TODAS las preguntas de "${areaLabel}"?\n\nEsta acción no se puede deshacer.`
+  );
+  if (!confirmacion) return;
+
+  try {
+    const cantidad = await deleteAllQuestionsByArea(area);
+    alert(`✅ Se eliminaron ${cantidad} preguntas de "${areaLabel}".`);
+    await renderSavedQuestions();
+    await updateCounts();
+  } catch (err) {
+    alert('❌ Error al limpiar la carpeta: ' + err.message);
+  }
 }
 
 // ── Backup / Restore ──────────────────────────────────────────────────────────
