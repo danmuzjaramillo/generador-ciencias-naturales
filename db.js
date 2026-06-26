@@ -99,7 +99,7 @@ export async function addQuestion(questionRecord) {
     const store = transaction.objectStore('questions');
     const request = store.add({
       fileId: questionRecord.fileId ? Number(questionRecord.fileId) : null,
-      area: questionRecord.area, // 'matematicas', 'lectura_critica', 'sociales_ciudadanas', 'ciencias_naturales', 'ingles'
+      area: questionRecord.area, // 'biologia_noveno', 'biologia_decimo', 'biologia_undecimo', 'quimica_noveno', 'quimica_decimo', 'quimica_undecimo'
       headerText: questionRecord.headerText || '',
       bodyText: questionRecord.bodyText || '',
       options: {
@@ -155,6 +155,17 @@ export async function deleteQuestion(id) {
     request.onsuccess = () => resolve();
     request.onerror = (event) => reject(event.target.error);
   });
+}
+
+/**
+ * Deletes ALL questions belonging to a specific area.
+ * Returns the number of questions deleted.
+ */
+export async function deleteAllQuestionsByArea(area) {
+  const questions = await getQuestionsByArea(area);
+  const deletePromises = questions.map(q => deleteQuestion(q.id));
+  await Promise.all(deletePromises);
+  return questions.length;
 }
 
 export async function updateQuestionCount(fileId, count) {
