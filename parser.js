@@ -115,6 +115,7 @@ function parseQuestionsFromText(text, imagesByPage = {}, fileType = 'pdf') {
 
   const parsedQuestions = [];
   let pendingHeader = '';
+  const seenNumbers = new Set(); // Track question numbers to avoid duplicates
 
   for (let i = 0; i < matches.length; i++) {
     const startIdx = matches[i].index;
@@ -124,11 +125,20 @@ function parseQuestionsFromText(text, imagesByPage = {}, fileType = 'pdf') {
     // The question number
     const qNumber = parseInt(matches[i].number, 10);
 
+    // Skip if already processed this question number (prevents duplicate entries
+    // when the regex matches both "Pregunta 1." and "1." in the same text)
+    if (seenNumbers.has(qNumber)) {
+      console.log(`Skipped duplicate question ${qNumber}.`);
+      continue;
+    }
+
     // Skip if it is excluded because it references multiple questions
     if (excludedSet.has(qNumber)) {
       console.log(`Skipped question ${qNumber} because it belongs to a multi-question block.`);
       continue;
     }
+
+    seenNumbers.add(qNumber);
 
     let headerText = pendingHeader;
     pendingHeader = ''; // Reset
@@ -414,9 +424,10 @@ export async function parseDocx(arrayBuffer, progressCallback) {
 
   const qNumInText = (text) => {
     // Only match if the number appears at the VERY START of the trimmed text.
-    // The (\s|$) after the separator prevents matching "12." at the end of a
-    // sentence like "...aterriza en el extremo 12."
-    const m = text.trimStart().match(/^(?:[Pp]regunta\s+|[Nn]°\s*)?([1-9][0-9]?)\s*[\.\-\)\:](\s|$)/);
+    // The (?!\d) negative lookahead after the separator prevents matching decimal
+    // numbers like "12.5" but allows "12.Los" (no space after dot) which Mammoth
+    // sometimes produces from DOCX files.
+    const m = text.trimStart().match(/^(?:[Pp]regunta\s+|[Nn]°\s*)?([1-9][0-9]?)\s*[\.\-\)\:](?!\d)/);
     return m ? parseInt(m[1], 10) : null;
   };
 
@@ -435,24 +446,40 @@ export async function parseDocx(arrayBuffer, progressCallback) {
       // 1. Check the paragraph's own text (covers "4. [img]" in same <p>)
       assignedQ = qNumInText(para.textContent);
 
-      // 2. Walk ALL previous siblings backwards (covers "<p>14.</p><p>[img]</p>"
-      //    and images embedded mid-question body text several paragraphs in)
+      // 2. Walk backward to find the nearest PRECEDING question number
+      let backwardQ = null;
+      let backwardSteps = 0;
       if (assignedQ === null) {
         let prevSib = para.previousElementSibling;
         while (prevSib) {
-          assignedQ = qNumInText(prevSib.textContent);
-          if (assignedQ !== null) break;
+          backwardSteps++;
+          backwardQ = qNumInText(prevSib.textContent);
+          if (backwardQ !== null) break;
           prevSib = prevSib.previousElementSibling;
         }
       }
 
-      // 3. If still not found, walk forward through siblings (image before question number)
+      // 3. Walk forward to find the nearest FOLLOWING question number
+      let forwardQ = null;
+      let forwardSteps = 0;
       if (assignedQ === null) {
         let sibling = para.nextElementSibling;
         while (sibling) {
-          assignedQ = qNumInText(sibling.textContent);
-          if (assignedQ !== null) break;
+          forwardSteps++;
+          forwardQ = qNumInText(sibling.textContent);
+          if (forwardQ !== null) break;
           sibling = sibling.nextElementSibling;
+        }
+      }
+
+      // 4. Choose the CLOSER question number (fewest sibling steps wins)
+      if (assignedQ === null) {
+        if (backwardQ !== null && forwardQ !== null) {
+          assignedQ = backwardSteps <= forwardSteps ? backwardQ : forwardQ;
+        } else if (backwardQ !== null) {
+          assignedQ = backwardQ;
+        } else if (forwardQ !== null) {
+          assignedQ = forwardQ;
         }
       }
     }
