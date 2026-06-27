@@ -10,12 +10,11 @@
 import { getQuestionsByArea } from './db.js';
 
 export const areaLabels = {
-  biologia_noveno: 'Biología-Noveno',
-  biologia_decimo: 'Biología-Décimo',
-  biologia_undecimo: 'Biología-Undécimo',
-  quimica_noveno: 'Química-Noveno',
-  quimica_decimo: 'Química-Décimo',
-  quimica_undecimo: 'Química-Undécimo'
+  matematicas: 'Matemáticas',
+  lectura_critica: 'Lectura Crítica',
+  sociales_ciudadanas: 'Sociales y Ciudadanas',
+  ciencias_naturales: 'Ciencias Naturales',
+  ingles: 'Inglés'
 };
 
 /**
@@ -39,10 +38,23 @@ export async function seleccionarPreguntasAleatorias(area, count = 30) {
   if (all.length === 0) {
     throw new Error(`No hay preguntas guardadas en el área de ${areaLabels[area]}.`);
   }
-  const shuffled = shuffle(all);
+
+  // Deduplicate by bodyText to ensure no repeated questions in the evaluation
+  // (prevents issues if the same question was saved multiple times in the DB)
+  const seenTexts = new Set();
+  const unique = [];
+  for (const q of all) {
+    const key = (q.bodyText || '').trim().toLowerCase();
+    if (!seenTexts.has(key)) {
+      seenTexts.add(key);
+      unique.push(q);
+    }
+  }
+
+  const shuffled = shuffle(unique);
   const selected = shuffled.slice(0, Math.min(count, shuffled.length));
   const warning = selected.length < count
-    ? `Nota: Solo hay ${selected.length} preguntas disponibles (se solicitaron ${count}).`
+    ? `Nota: Solo hay ${selected.length} preguntas únicas disponibles (se solicitaron ${count}).`
     : null;
   return { questions: selected, warning };
 }
@@ -127,7 +139,7 @@ export async function exportarWord(questions, area, incluirClaves) {
       new Paragraph({
         children: [
           new TextRun({
-            text: `EVALUACIÓN — ${areaLabel.toUpperCase()}`,
+            text: `EVALUACIÓN ICFES — ${areaLabel.toUpperCase()}`,
             font: 'Arial', size: 18, bold: true, color: '3B3B3B'
           }),
           new TextRun({
@@ -146,7 +158,7 @@ export async function exportarWord(questions, area, incluirClaves) {
     children: [
       new Paragraph({
         children: [
-          new TextRun({ text: 'Extractor-Biología-Química  •  Página ', font: 'Arial', size: 16, color: '888888' }),
+          new TextRun({ text: 'ICFES Extractor  •  Página ', font: 'Arial', size: 16, color: '888888' }),
           new TextRun({ children: [PageNumber.CURRENT], font: 'Arial', size: 16, color: '888888' }),
           new TextRun({ text: ' de ', font: 'Arial', size: 16, color: '888888' }),
           new TextRun({ children: [PageNumber.TOTAL_PAGES], font: 'Arial', size: 16, color: '888888' })
@@ -177,7 +189,7 @@ export async function exportarWord(questions, area, incluirClaves) {
     ruleLine()
   ];
 
-  questions.forEach((q, idx) => {
+  for (const [idx, q] of questions.entries()) {
     // Question number + body
     const bodyLines = (q.bodyText || '').split('\n').filter(l => l.trim());
 
@@ -219,12 +231,29 @@ export async function exportarWord(questions, area, incluirClaves) {
     if (q.images && q.images.length > 0) {
       for (const imgSrc of q.images) {
         try {
-          // Calculate proportional height based on actual image aspect ratio
+          // Calculate image dimensions with BOTH max width and max height constraints
+          // (same approach as PDF export which uses max-width: 100%; max-height: 220px)
           const dims = await getImageDimensionsFromDataUrl(imgSrc);
-          const targetWidth = 400;
-          let targetHeight = 280; // fallback for dimension detection failure
+          // Page: Letter (8.5" wide). Margins: 0.875" each side → usable width = 6.75"
+          // docx ImageRun treats width/height as pixels at 96 DPI:
+          //   Tables (images with tabular data) need more width to be readable.
+          //   maxWidth 600 px / 96 DPI = 6.25" — close to full usable width (6.75")
+          //   maxHeight 300 px / 96 DPI = 3.13" — keeps tall images under control
+          const maxWidth = 600;
+          const maxHeight = 300;
+          let targetWidth = maxWidth;
+          let targetHeight = 450; // fallback 4:3 ratio for 600px width
           if (dims && dims.width > 0) {
-            targetHeight = Math.round(dims.height * (targetWidth / dims.width));
+            // Scale based on width first
+            let w = maxWidth;
+            let h = Math.round(dims.height * (w / dims.width));
+            // If height exceeds max, recalculate based on height constraint
+            if (h > maxHeight) {
+              h = maxHeight;
+              w = Math.round(dims.width * (h / dims.height));
+            }
+            targetWidth = w;
+            targetHeight = h;
           }
           children.push(
             new Paragraph({
@@ -266,9 +295,7 @@ export async function exportarWord(questions, area, incluirClaves) {
           spacing: { before: 60, after: 0 }
         })
       );
-    });
-
-    // Correct answer badge (if incluirClaves)
+    });          // Correct answer badge (if incluirClaves)
     if (incluirClaves && q.correctOption) {
       children.push(
         new Paragraph({
@@ -278,7 +305,7 @@ export async function exportarWord(questions, area, incluirClaves) {
         })
       );
     }
-  });
+  }
 
   // ── Answer key table (at end) ─────────────────────────────────
   if (incluirClaves) {
@@ -296,7 +323,8 @@ export async function exportarWord(questions, area, incluirClaves) {
     const { Table, TableRow, TableCell, ShadingType } = window.docx;
     const border = { style: BorderStyle.SINGLE, size: 4, color: 'DDDDDD' };
     const borders = { top: border, bottom: border, left: border, right: border };
-    const cellWidth = { size: 936, type: WidthType.DXA }; // 9360 / 10 cols
+    // Table set to 100% width via PERCENTAGE; cells have no explicit width so Word auto-distributes evenly.
+    const cellWidth = undefined;
 
     // Header row
     const headerCells = ['N°', ...Array.from({ length: 9 }, (_, i) => String(i + 1))].map(txt =>
@@ -304,9 +332,9 @@ export async function exportarWord(questions, area, incluirClaves) {
         borders,
         width: cellWidth,
         shading: { fill: '6366F1', type: ShadingType.CLEAR },
-        margins: { top: 80, bottom: 80, left: 80, right: 80 },
+        margins: { top: 100, bottom: 100, left: 80, right: 80 },
         children: [new Paragraph({
-          children: [new TextRun({ text: txt, font: 'Arial', size: 18, bold: true, color: 'FFFFFF' })],
+          children: [new TextRun({ text: txt, font: 'Arial', size: 20, bold: true, color: 'FFFFFF' })],
           alignment: AlignmentType.CENTER
         })]
       })
@@ -322,18 +350,18 @@ export async function exportarWord(questions, area, incluirClaves) {
         new TableCell({
           borders, width: cellWidth,
           shading: { fill: 'F3F4F6', type: ShadingType.CLEAR },
-          margins: { top: 80, bottom: 80, left: 80, right: 80 },
+          margins: { top: 100, bottom: 100, left: 80, right: 80 },
           children: [new Paragraph({
-            children: [new TextRun({ text: 'N°', font: 'Arial', size: 17, bold: true })],
+            children: [new TextRun({ text: 'N°', font: 'Arial', size: 18, bold: true })],
             alignment: AlignmentType.CENTER
           })]
         }),
         ...rowNums.map(qi => new TableCell({
           borders, width: cellWidth,
           shading: { fill: 'F9FAFB', type: ShadingType.CLEAR },
-          margins: { top: 80, bottom: 80, left: 80, right: 80 },
+          margins: { top: 100, bottom: 100, left: 80, right: 80 },
           children: [new Paragraph({
-            children: [new TextRun({ text: qi < questions.length ? String(qi + 1) : '', font: 'Arial', size: 17 })],
+            children: [new TextRun({ text: qi < questions.length ? String(qi + 1) : '', font: 'Arial', size: 18 })],
             alignment: AlignmentType.CENTER
           })]
         }))
@@ -344,20 +372,20 @@ export async function exportarWord(questions, area, incluirClaves) {
         new TableCell({
           borders, width: cellWidth,
           shading: { fill: 'F3F4F6', type: ShadingType.CLEAR },
-          margins: { top: 80, bottom: 80, left: 80, right: 80 },
+          margins: { top: 100, bottom: 100, left: 80, right: 80 },
           children: [new Paragraph({
-            children: [new TextRun({ text: 'Rta.', font: 'Arial', size: 17, bold: true })],
+            children: [new TextRun({ text: 'Rta.', font: 'Arial', size: 18, bold: true })],
             alignment: AlignmentType.CENTER
           })]
         }),
         ...rowNums.map(qi => new TableCell({
           borders, width: cellWidth,
           shading: { fill: 'ECFDF5', type: ShadingType.CLEAR },
-          margins: { top: 80, bottom: 80, left: 80, right: 80 },
+          margins: { top: 100, bottom: 100, left: 80, right: 80 },
           children: [new Paragraph({
             children: [new TextRun({
               text: qi < questions.length ? (questions[qi].correctOption || '—') : '',
-              font: 'Arial', size: 18, bold: true, color: '10B981'
+              font: 'Arial', size: 20, bold: true, color: '10B981'
             })],
             alignment: AlignmentType.CENTER
           })]
@@ -369,8 +397,7 @@ export async function exportarWord(questions, area, incluirClaves) {
     }
 
     children.push(new Table({
-      width: { size: 9360, type: WidthType.DXA },
-      columnWidths: Array(10).fill(936),
+      width: { size: 5000, type: WidthType.PERCENTAGE }, // 100% of page width
       rows: tableRows
     }));
   }
@@ -612,7 +639,7 @@ export function exportarPDF(questions, area, incluirClaves) {
     html += `</tbody></table></div>`;
   }
 
-  html += `<div class="footer">Extractor-Biología-Química — ${areaLabel} — ${fecha}</div>`;
+  html += `<div class="footer">ICFES Extractor — ${areaLabel} — ${fecha}</div>`;
   html += `</body></html>`;
 
   // Open print window
